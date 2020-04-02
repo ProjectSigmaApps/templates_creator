@@ -10,12 +10,10 @@ Acts on a Merit Organization as an App to create templates in bulk.
 A properly formatted CSV must be used, and the relavent org and app IDs must be submitted in the popup. Note, existing fields will be used when found, replacing the data in the spreadsheet for that field.
 '''
 
-
 class newTemplate:
     '''Template class
     A new instance of this class will be created for each valid row in the input file.
     '''
-
     def __init__(self, templateId='', title='', description='', canOnlyBeSentOnce=False, additionalFields=[]):
         self.templateId = templateId
         self.title = title
@@ -63,12 +61,10 @@ class newTemplate:
             'additionalFields': self.additionalFields
         }
 
-
 class newField:
     '''Class for additional fields
     All fields will be created as an instance of this class, and then appended to the template once complete.
     '''
-
     def __init__(self, fieldId='', name='', fieldType='', description='', newEnabled=False, newRequired=False, newValueForAllMerits=''):
         self.fieldId = fieldId
         self.name = name
@@ -127,7 +123,6 @@ class newField:
             'newValueForAllMerits': self.newValueForAllMerits
         }
 
-
 def auth(orgId, appId, appSecret):
     '''Auth
     Takes orgId, appId, and appSecret as input to retreive an orgAccessToken via call to Merit API.
@@ -157,18 +152,15 @@ def auth(orgId, appId, appSecret):
             sg.Popup(
                 'Click OK once you have linked your Org to continue')
 
-
 def getTemplates():
     '''Updates existing templates list. Limit set to 500, if greater must update tool to handle pagination.'''
     rt = s.get(s.url+'orgs/'+orgId+'/merittemplates?limit=500')
     return rt.json()
 
-
 def getFields():
     '''Update existing fields list. Limit set to 500, if greater must update tool to handle pagination'''
     rf = s.get(s.url+'orgs/'+orgId+'/fields?limit=500')
     return rf.json()
-
 
 def userInput():
     '''User input
@@ -179,17 +171,16 @@ def userInput():
         [sg.Text('Please enter your orgId, appId, and appSecret and select your CSV')],
         [sg.Text('orgId', size=(15, 1)), sg.InputText(key='orgId')],
         [sg.Text('appId', size=(15, 1)), sg.InputText(key='appId')],
-        [sg.Text('appSecret', size=(15, 1)), sg.InputText(
-            '', key='appSecret', password_char='*')],
+        [sg.Text('appSecret', size=(15, 1)), sg.InputText(key='appSecret', password_char='*')],
         [sg.Text('File')], [sg.Input(), sg.FileBrowse()],
         [sg.Combo(('Sandbox', 'Production'),
-                  key='Environment', size=(10, 1))],
+                  key='Environment', size=(10, 1), default_value='Sandbox')],
         [sg.Submit(), sg.Cancel()]
     ]
     window = sg.Window(
         'Basic Authentication and file selection', layout, finalize=True)
     while True:
-        event, values = window.Read()
+        event, values = window.Read(timeout=100)
         if values['Environment'] == 'Sandbox':
             values['Environment'] = 'https://sandbox-api.merits.com/v2/'
         if values['Environment'] == 'Production':
@@ -202,28 +193,77 @@ def userInput():
             return values.values()
     window.Close()
 
+def templatesFileValidation(templatesCSV):
+    '''File validation
+    Read a CSV file to ensure the formatting is as required for ingestion.
+    '''
+    headerRow = ['meritTemplate.title', 'meritTemplate.description', 'meritTemplate.canOnlyBeSentOnce', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits']
+    sg.Popup('Click OK to begin CSV validation.', 'Note, this may take a few minutes. You will be notified if errors are found or if validation passes successfully.')
+    with open(templatesCSV) as infile:
+        sheet = list(csv.reader(infile))
+        for num, row in enumerate(sheet):
+            for col, cell in enumerate(row):
+                if num == 0:
+                    if cell != headerRow[col]:
+                        sg.PopupScrolled('An error has been found with your header row. Please ensure it follows the below format exactly, even if all 35 fields are not utilized in your templates:', 'meritTemplate.title,meritTemplate.description,meritTemplate.canOnlyBeSentOnce, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits')
+                        return False
+                elif sheet[0][col] != 'field.newValueForAllMerits' and cell == '':
+                    breakMessage = 'Error, this cell cannot be blank. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                    sg.PopupError(breakMessage)
+                    return False
+                else:
+                    if sheet[0][col] == 'meritTemplate.title' and len(cell) > 60:
+                        breakMessage = 'Error, Template Title is too long. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+                    if sheet[0][col] == 'meritTemplate.description' and len(cell) > 160:
+                        breakMessage = 'Error, Template Description is too long. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+                    if sheet[0][col] == 'meritTemplate.canOnlyBeSentOnce' and cell not in ['TRUE', 'FALSE']:
+                        breakMessage = 'Error, value must be exactly TRUE or FALSE. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+                    if sheet[0][col] == 'field.name' and len(cell) > 35:
+                        breakMessage = 'Error, Field Name is too long. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+                    if sheet[0][col] == 'field.fieldType' and cell not in['ShortText', 'LongText', 'Date', 'Checkbox', 'Documents', 'Photos', 'Videos', 'Name']:
+                        breakMessage = 'Error, Field Type must be exactly one of the following: ShortText, LongText, Date, Checkbox, Documents, Photos, Videos, or Name. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+                    if sheet[0][col] == 'field.description' and len(cell) > 160:
+                        breakMessage = 'Error, Field Description is too long. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+                    if sheet[0][col] == 'field.newEnabled' and cell not in ['TRUE', 'FALSE']:
+                        breakMessage = 'Error, value must be exactly TRUE or FALSE. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False                    
+                    if sheet[0][col] == 'field.newRequired' and cell not in ['TRUE', 'FALSE']:
+                        breakMessage = 'Error, value must be exactly TRUE or FALSE. Please correct your CSV and retry. Row: ' + str(num + 1) + ' Col: ' + str(col + 1)
+                        sg.PopupError(breakMessage)
+                        # return False
+    sg.Popup('CSV Successfully Validated. Press OK to continue.')
+    return True
 
 def templatesFileIngestion(templatesCSV):
     '''File ingestion
     Read a properly formatted CSV into the template and field classes, ending in a structured dict.
     Columns 0-2 are for the template itself, and every set of 6 columns after that repeat for each additional field to be added (max 35 additional fields). 
     Formatted CSV Header Row:
-    meritTemplate.title,meritTemplate.description,meritTemplate.canOnlyBeSentOnce,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits,field.name,field.fieldType,field.description,field.newEnabled,field.newRequired,field.newValueForAllMerits
+    meritTemplate.title,meritTemplate.description,meritTemplate.canOnlyBeSentOnce, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits
     '''
     tList = []
     tListPos = 0
     index = 0
-    totalLength = 0
+    templatesCount = 0
     with open(templatesCSV) as infile:
         sheet = list(csv.reader(infile))
-        for row in sheet:
-            totalLength += 1
-            for cell in range(len(row)):
-                if (row[cell] is not '' or None) and (sheet[0][cell] == 'field.name'):
-                    totalLength += 1
+        templatesCount = len(sheet)
         for row in sheet:
             sg.OneLineProgressMeter('Template and Field Creation Progress', index,
-                                    totalLength, 'key', 'Total fields and templates to be processed:')
+                                    templatesCount, 'key', 'Total templates to be processed:')
             index += 1
             if row[0] != 'meritTemplate.title':
                 myTemplate = newTemplate(
@@ -237,7 +277,6 @@ def templatesFileIngestion(templatesCSV):
                             myField.toDict())
                 tListPos += 1
     return tList
-
 
 def createFieldSettings(templatesDict):
     '''Creates fieldSettings after all templates and additional fields have been processed (field+template)'''
@@ -262,12 +301,11 @@ def createFieldSettings(templatesDict):
                 }
                 if field['newValueForAllMerits'] is not '' or None:
                     payload.update(
-                        {'newValueForAllMerits': field['newValueForAllMerits']})
+                        {'fieldId': field['id'], 'newValueForAllMerits': field['newValueForAllMerits']})
                 headers = {
                     'Content-Type': "application/json"
                 }
                 s.post(url, data=json.dumps(payload), headers=headers)
-
 
 if __name__ == '__main__':
     orgId, appId, appSecret, templatesCSV, filePath, server = userInput()
@@ -276,5 +314,7 @@ if __name__ == '__main__':
     s.url = server
     s.headers.update(auth(orgId, appId, appSecret))
 
-    newTemplates = templatesFileIngestion(templatesCSV)
-    createFieldSettings(newTemplates)
+    valid = templatesFileValidation(templatesCSV)
+    if valid:
+        newTemplates = templatesFileIngestion(templatesCSV)
+        createFieldSettings(newTemplates)
