@@ -9,14 +9,11 @@ import webbrowser
 Acts on a Merit Organization as an App to create templates in bulk.
 A properly formatted CSV must be used, and the relavent org and app IDs must be submitted in the popup. Note, existing fields will be used when found, replacing the data in the spreadsheet for that field.
 '''
-
-
 class newTemplate:
     '''Template class
     A new instance of this class will be created for each valid row in the input file.
     '''
-
-    def __init__(self, templateId='', title='', description='', canOnlyBeSentOnce=False, coverPhotoId='', coverPhotoFileName='', additionalFields=[]):
+    def __init__(self, templateId, title, description, canOnlyBeSentOnce, coverPhotoId, coverPhotoFileName, additionalFields):
         self.templateId = templateId
         self.title = title
         self.description = description
@@ -34,59 +31,49 @@ class newTemplate:
         Create a new template via API call to Merit; append returned ID to self.
         '''
         url = s.url + "merittemplates"
-
-        if self.coverPhotoId == '':
-            payload = {
-                "orgId": orgId,
-                "title": self.title,
-                "description": self.description,
-                "canOnlyBeSentOnce": self.canOnlyBeSentOnce,
-            }
-        else:
-            payload = {
-                "orgId": orgId,
-                "title": self.title,
-                "description": self.description,
-                "canOnlyBeSentOnce": self.canOnlyBeSentOnce,
-                "coverPhoto": {
-                    "id": self.coverPhotoId,
-                    "fileName": self.coverPhotoFileName
-                }
-            }
+        payload = {
+            'orgId': orgId,
+            'title': self.title,
+            'description': self.description,
+            'canOnlyBeSentOnce': self.canOnlyBeSentOnce,
+        }
+        if self.coverPhotoId != '':
+            payload.update({
+                'coverPhoto': {'id': self.coverPhotoId,'fileName': self.coverPhotoFileName}})
         headers = {
             'Content-Type': "application/json"
         }
         r = s.post(url, data=json.dumps(payload), headers=headers).json()
         self.templateId = r['id']
+        return
 
     def meritTemplateExists(self):
         '''Check if that template already exists by matching the `title`; update `id` and `description` if so. Create if not.'''
-        existingTemplates = getTemplates()
-        for meritTemplate in existingTemplates['merittemplates']:
+        for meritTemplate in orgTemplates:
             if self.title == meritTemplate['title']:
                 self.templateId = meritTemplate['id']
-                self.description = meritTemplate['description']
                 return
         self.createTemplate()
+        return
 
     def toDict(self):
-        return {
+        tempDict = {
             'id': self.templateId,
             'title': self.title,
             'description': self.description,
             'canOnlyBeSentOnce': self.canOnlyBeSentOnce,
+            'coverPhoto': {'id': self.coverPhotoId, 'fileName': self.coverPhotoFileName},
             'additionalFields': self.additionalFields
         }
-
+        return tempDict
 
 class newField:
     '''Class for additional fields
     All fields will be created as an instance of this class, and then appended to the template once complete.
     '''
-
-    def __init__(self, fieldId='', name='', fieldType='', description='', newEnabled=False, newRequired=False, newValueForAllMerits=''):
+    def __init__(self, fieldId, fieldName, fieldType, description, newEnabled, newRequired, newValueForAllMerits):
         self.fieldId = fieldId
-        self.name = name
+        self.fieldName = fieldName
         self.fieldType = fieldType
         self.description = description
         if newEnabled == '' or 'FALSE':
@@ -100,6 +87,19 @@ class newField:
         self.newValueForAllMerits = newValueForAllMerits
         self.fieldExists()
 
+    def fieldExists(self):
+        '''Field Exists
+        Checks if a given field exists by checking for its name in the list of Org Fields.
+        '''
+        for field in fieldsList:
+            if self.fieldName == field['fieldName']:
+                self.fieldId = field['id']
+                self.fieldType = field['fieldType']
+                self.description = field['description']
+                return
+        fieldsList.append(self.createField())
+        return
+
     def createField(self):
         '''Create New Fields
         If a field is included that does not already exist, this function will be called to create the field via an API call to Merit and update self.fieldId.
@@ -107,7 +107,7 @@ class newField:
         url = s.url + "fields"
         payload = {
             "orgId": orgId,
-            "name": self.name,
+            "name": self.fieldName,
             "description": self.description,
             "fieldType": self.fieldType
         }
@@ -116,32 +116,19 @@ class newField:
         }
         r = s.post(url, data=json.dumps(payload), headers=headers).json()
         self.fieldId = r['id']
-
-    def fieldExists(self):
-        '''Field Exists
-        Checks if a given field exists by checking for its name in the list of Org Fields.
-        '''
-        fieldList = getFields()
-        for field in fieldList['fields']:
-            if self.name == field['fieldName']:
-                self.fieldId = field['id']
-                self.fieldType = field['fieldType']
-                self.description = field['description']
-                return
-        self.createField()
+        return self.toDict()
 
     def toDict(self):
         '''Returns the newField instance as a Dict for consistent handling.'''
         return {
             'id': self.fieldId,
-            'name': self.name,
+            'fieldName': self.fieldName,
             'fieldType': self.fieldType,
             'description': self.description,
             'newEnabled': self.newEnabled,
             'newRequired': self.newRequired,
             'newValueForAllMerits': self.newValueForAllMerits
         }
-
 
 def auth(orgId, appId, appSecret):
     '''Auth
@@ -152,11 +139,11 @@ def auth(orgId, appId, appSecret):
     while True:
         rAuth = s.post(s.url + 'orgs/' + orgId + '/access',
                        auth=HTTPBasicAuth(appId, appSecret))
-        if rAuth.status_code == 200:
-            rAuthJson = rAuth.json()
-            orgAccessToken = rAuthJson['orgAccessToken']
+        statusCode = rAuth.status_code
+        if statusCode == 200:
+            orgAccessToken = rAuth.json()['orgAccessToken']
             return {'Authorization': 'Bearer ' + orgAccessToken}
-        if rAuth.status_code == 403:
+        if statusCode >= 400:
             # fetch applink url
             payload = {"requestedPermissions": [{"permissionType": "CanManageAllMeritTemplates"}, {
                 "permissionType": "CanSendAllMeritTemplates"}], "successUrl": "/goodpath", "failureUrl": "/badpath", "state": "somestatevariable"}
@@ -172,18 +159,24 @@ def auth(orgId, appId, appSecret):
             sg.Popup(
                 'Click OK once you have linked your Org to continue')
 
-
 def getTemplates():
-    '''Updates existing templates list. Limit set to 500, if greater must update tool to handle pagination.'''
-    rt = s.get(s.url+'orgs/'+orgId+'/merittemplates?limit=500')
-    return rt.json()
-
+    '''Updates existing templates list.'''
+    response = s.get(s.url+'orgs/'+orgId+'/merittemplates?limit=100')
+    templates = response.json()['merittemplates']
+    nextPage = response.json()['paging']['pageInfo']['hasNextPage']
+    while nextPage:
+        cursor = response.json()['paging']['cursors']['after']
+        response = s.get(s.url+'orgs/'+orgId+'/merittemplates?limit=100&starting_after='+cursor)
+        newTemplates = response.json()['merittemplates']
+        templates.extend(newTemplates)
+        nextPage = response.json()['paging']['pageInfo']['hasNextPage']
+    return templates
 
 def getFields():
-    '''Update existing fields list. Limit set to 500, if greater must update tool to handle pagination'''
-    rf = s.get(s.url+'orgs/'+orgId+'/fields?limit=500')
-    return rf.json()
-
+    '''Update existing fields list.'''
+    response = s.get(s.url+'orgs/'+orgId+'/fields')
+    fields = response.json()['fields']
+    return fields
 
 def userInput():
     '''User input
@@ -219,13 +212,12 @@ def userInput():
             return values.values()
     window.Close()
 
-
 def templatesFileValidation(templatesCSV):
     '''File validation
     Read a CSV file to ensure the formatting is as required for ingestion.
     '''
     headerRow = ['meritTemplate.title', 'meritTemplate.description', 'meritTemplate.canOnlyBeSentOnce', 'meritTemplate.coverPhotoId', 'meritTemplate.coverPhotoFileName', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired',
-                 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits']
+                 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits', 'field.name', 'field.fieldType', 'field.description', 'field.newEnabled', 'field.newRequired', 'field.newValueForAllMerits']
     sg.Popup('Click OK to begin CSV validation.',
              'Note, this may take a few minutes. You will be notified if errors are found or if validation passes successfully.')
     with open(templatesCSV) as infile:
@@ -296,7 +288,6 @@ def templatesFileValidation(templatesCSV):
     sg.Popup('CSV Successfully Validated. Press OK to continue.')
     return True
 
-
 def templatesFileIngestion(templatesCSV):
     '''File ingestion
     Read a properly formatted CSV into the template and field classes, ending in a structured dict.
@@ -305,7 +296,6 @@ def templatesFileIngestion(templatesCSV):
     meritTemplate.title,meritTemplate.description,meritTemplate.canOnlyBeSentOnce, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits, field.name, field.fieldType, field.description, field.newEnabled, field.newRequired, field.newValueForAllMerits
     '''
     tList = []
-    tListPos = 0
     index = 0
     templatesCount = 0
     with open(templatesCSV) as infile:
@@ -316,57 +306,57 @@ def templatesFileIngestion(templatesCSV):
                                     templatesCount, 'key', 'Total templates to be processed:')
             index += 1
             if row[0] != 'meritTemplate.title':
-                myTemplate = newTemplate(
-                    '', row[0], row[1], row[2], row[3], row[4], [])
-                tList.append(myTemplate.toDict())
+                thisTemplateFields = []
                 for cell in range(len(row)):
                     if (row[cell] is not '' or None) and (sheet[0][cell] == 'field.name'):
                         myField = newField(
                             '', row[cell], row[cell+1], row[cell+2], row[cell+3], row[cell+4], row[cell+5])
-                        tList[tListPos]['additionalFields'].append(
-                            myField.toDict())
-                tListPos += 1
+                        thisTemplateFields.append(myField.toDict())
+                myTemplate = newTemplate(
+                    '', row[0], row[1], row[2], row[3], row[4], thisTemplateFields)
+                tList.append(myTemplate.toDict())
     return tList
 
-
-def createFieldSettings(templatesDict):
-    '''Creates fieldSettings after all templates and additional fields have been processed (field+template)'''
-    totalLength = 0
-    index = 0
-    for temp in templatesDict:
-        totalLength += 1
-        for field in temp['additionalFields']:
-            if field['name'] is not '' or None:
-                totalLength += 1
-    for template in templatesDict:
-        for field in template['additionalFields']:
-            sg.OneLineProgressMeter('Field Setting Creation Progress', index,
-                                    totalLength, 'key', 'Total fields to be added to templates:')
-            index += 1
-            if field['name'] is not '' or None:
-                url = s.url + "merittemplates/" + \
-                    template['id'] + '/fields/' + field['id']
-                payload = {
-                    'newEnabled': field['newEnabled'],
-                    'newRequired': field['newRequired']
-                }
-                if field['newValueForAllMerits'] is not '' or None:
-                    payload.update(
-                        {'fieldId': field['id'], 'newValueForAllMerits': field['newValueForAllMerits']})
-                headers = {
-                    'Content-Type': "application/json"
-                }
-                s.post(url, data=json.dumps(payload), headers=headers)
-
+def addFieldSettings(template):
+    '''Adds the additonalFields as fields on the meritTemplate'''
+    for field in template['additionalFields']:
+        if field['fieldName'] is not '' or None:
+            url = s.url + "merittemplates/" + \
+                template['id'] + '/fields/' + field['id']
+            payload = {
+                'newEnabled': field['newEnabled'],
+                'newRequired': field['newRequired']
+            }
+            if field['newValueForAllMerits'] is not '' or None:
+                payload.update(
+                    {'fieldId': field['id'], 'newValueForAllMerits': field['newValueForAllMerits']})
+            headers = {
+                'Content-Type': "application/json"
+            }
+            s.post(url, data=json.dumps(payload), headers=headers)
+    return
 
 if __name__ == '__main__':
     orgId, appId, appSecret, templatesCSV, filePath, server = userInput()
 
     s = requests.Session()
     s.url = server
-    s.headers.update(auth(orgId, appId, appSecret))
+    authHeader = auth(orgId, appId, appSecret)
+    s.headers.update(authHeader)
+
+    orgTemplates = getTemplates()
+    fieldsList = getFields()
 
     valid = templatesFileValidation(templatesCSV)
     if valid:
         newTemplates = templatesFileIngestion(templatesCSV)
-        createFieldSettings(newTemplates)
+        totalLength = 0
+        index = 0
+        for template in newTemplates:
+            totalLength += 1
+        for template in newTemplates:
+            sg.OneLineProgressMeter('Field Setting Creation Progress', index,
+                                    totalLength, 'key', 'Total templates being updated with fields:')
+            index += 1
+            addFieldSettings(template)
+    sg.popup('Job complete')
